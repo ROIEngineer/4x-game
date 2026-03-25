@@ -14,111 +14,148 @@ const players =  [
 
 class Economy {
     constructor(players) {
-        this.players = players;
+        this.players = new Map(players.map(p => [p.name, p]));
+        this._totalGoldCache = null;
+        this._rankingCache = null;
+    }
+
+    // Private helpers
+    #getPlayer(name) {
+        return this.players.get(name) ?? null;
+    }
+
+    #invalidateCache() {
+        this._totalGoldCache = null;
+        this._rankingCache = null;
     }
 
     // Tax related
-    getTaxRate(player) {
-        if (!this.players[player]) return;
-        return this.players[player].taxRate;
+    getTaxRate(name) {
+        const player = this.#getPlayer(name);
+        if (!player) return { success: false, message: "Player not found." };
+        return { success: true, taxRate: player.taxRate };
     }
 
-    setTaxRate(player, rate) {
-        if (!this.players[player]) return;
+    setTaxRate(name, rate) {
+        const player = this.#getPlayer(name);
+        if (!player) return { success: false, message: "Player not found." };
+        if (rate < 0 || rate > 1) return { success: false, message: "Rate must be between 0 and 1." };
 
-        if (rate < 0 || rate > 1) {
-            console.log("Rate must be between 0 and 1.");
-            return;
-        } 
-        this.players[player].taxRate = rate;
+        player.taxRate = rate;
+        return { success: true };
     }
 
-    raiseTaxes(player) {
-        if (!this.players[player]) return;
+    raiseTaxes(name) {
+        const player = this.#getPlayer(name);
+        if (!player) return { success: false, message: "Player not found." };
+        if (player.taxRate >= 1) return { success: false, message: "Tax rate is already at maximum." };
 
-        if (this.players[player].taxRate < 1) {
-            this.players[player].taxRate = Math.round((this.players[player].taxRate + 0.1) * 10) / 10;
-        }
+        player.taxRate = Math.round((player.taxRate + 0.1) * 10) / 10;
+        return { success: true, taxRate: player.taxRate };
     }
 
-    lowerTaxes(player) {
-        if (!this.players[player]) return;
+    lowerTaxes(name) {
+        const player = this.#getPlayer(name);
+        if (!player) return { success: false, message: "Player not found." };
+        if (player.taxRate <= 0) return { success: false, message: "Tax rate is already at minimum." };
 
-        if (this.players[player].taxRate > 0) {
-            this.players[player].taxRate = Math.round((this.players[player].taxRate - 0.1) * 10) / 10;
-        }
+        player.taxRate = Math.round((player.taxRate - 0.1) * 10) / 10;
+        return { success: true, taxRate: player.taxRate };
     }
 
     collectTaxes() {
-        for (let i = 0; i < this.players.length; i++) {
-            const taxes = this.players[i].population * this.players[i].taxRate;
-            this.players[i].gold += taxes;
+        const summary = [];
+        for (const player of this.players.values()) {
+            const collected = player.population * player.taxRate;
+            player.gold += collected;
+            summary.push({ name: player.name, collected, newGold: player.gold });
         }
+        this.#invalidateCache();
+        return { success: true, summary };
     }
 
-    // Gold related 
-    transferGold(fromPlayer, toPlayer, goldAmount) {
-        if (!this.players[fromPlayer] || !this.players[toPlayer]) return;
+    // Gold related
+    transferGold(fromName, toName, goldAmount) {
+        const fromPlayer = this.#getPlayer(fromName);
+        const toPlayer = this.#getPlayer(toName);
 
-        if (goldAmount > this.players[fromPlayer].gold) {
-            console.log(`${this.players[fromPlayer].name} has insufficient funds.`);
-            return;
-        }
-        this.players[fromPlayer].gold -= goldAmount;
-        this.players[toPlayer].gold += goldAmount;
+        if (!fromPlayer || !toPlayer) return { success: false, message: "Player not found." };
+        if (goldAmount <= 0) return { success: false, message: "Amount must be greater than zero." };
+        if (goldAmount > fromPlayer.gold) return { success: false, message: `${fromPlayer.name} has insufficient funds.` };
+
+        fromPlayer.gold -= goldAmount;
+        toPlayer.gold += goldAmount;
+        this.#invalidateCache();
+        return { success: true };
     }
 
-    deductGold(player, goldAmount) {
-        if (!this.players[player]) return;
+    deductGold(name, goldAmount) {
+        const player = this.#getPlayer(name);
+        if (!player) return { success: false, message: "Player not found." };
+        if (goldAmount <= 0) return { success: false, message: "Amount must be greater than zero." };
+        if (goldAmount > player.gold) return { success: false, message: `${player.name} has insufficient funds.` };
 
-        if (goldAmount > this.players[player].gold) {
-            console.log(`${this.players[player].name} has insufficient funds.`);
-            return;
-        }
-        this.players[player].gold -= goldAmount;
+        player.gold -= goldAmount;
+        this.#invalidateCache();
+        return { success: true };
     }
 
-    isAffordable(player, cost) {
-        if (!this.players[player]) return;
+    isAffordable(name, cost) {
+        const player = this.#getPlayer(name);
+        if (!player) return { success: false, message: "Player not found." };
 
-        if (cost > this.players[player].gold) {
-            console.log("Insufficient funds.");
-            return false;
-        }
-        return true;
+        return cost <= player.gold
+            ? { success: true }
+            : { success: false, message: "Insufficient funds." };
     }
 
-    // Reporting related 
+    // Reporting related
     getWealthRanking() {
-        return this.players.toSorted((a, b) => b.gold - a.gold);
+        if (this._rankingCache) return this._rankingCache;
+        this._rankingCache = [...this.players.values()].toSorted((a, b) => b.gold - a.gold);
+        return this._rankingCache;
     }
 
     getTotalGold() {
-        return this.players.reduce((total, current) => total + current.gold, 0);
+        if (this._totalGoldCache !== null) return this._totalGoldCache;
+        this._totalGoldCache = [...this.players.values()].reduce((total, p) => total + p.gold, 0);
+        return this._totalGoldCache;
     }
 
     getAverageGold() {
-        const total = this.getTotalGold();
-        return total / this.players.length;
+        return this.getTotalGold() / this.players.size;
     }
 
-    // Validation 
-    isBankrupt(player) {
-        if (!this.players[player]) return;
-        return this.players[player].gold <= 0;
+    // Validation
+    isBankrupt(name) {
+        const player = this.#getPlayer(name);
+        if (!player) return { success: false, message: "Player not found." };
+        return { success: true, isBankrupt: player.gold <= 0 };
     }
 
     getBankruptPlayers() {
-        return this.players.filter(player => player.gold <= 0);
+        return [...this.players.values()].filter(player => player.gold <= 0);
     }
-
 }
 
 const economy = new Economy(players);
 
-economy.deductGold(0, 10);
-economy.deductGold(1, 20);
-economy.deductGold(2, 40);
-economy.deductGold(3, 80);
+economy.raiseTaxes("Mongols");
+economy.collectTaxes();
+
+const result = economy.transferGold("Mongols", "French", 40);
+if (!result.success) console.log(result.message);
 
 console.log(economy.getWealthRanking());
+console.log(economy.getTotalGold());
+
+/* Population Class
+population growth, deaths, birth rates, happiness 
+
+You could even have them interact later, for example 
+the Economy class referencing population size to 
+calculate taxes, while Population tracks how tax rates 
+affect citizen happiness or growth.
+
+A Population class is still unwritten — growth, happiness, and how tax rates affect citizens would be a natural next step.
+*/
