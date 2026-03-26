@@ -1,10 +1,10 @@
 export default class Player {
-    constructor(name, config, nameGenerator) {
+    constructor(name) {
         this.name = name;
-        this.gold = config.gold;
-        this.population = config.population;
-        this.taxRate = config.taxRate;
-        this.happiness = config.happiness;
+        this.gold = 0;
+        this.population = 0;
+        this.taxRate = 0.1;
+        this.happiness = 0;
         this.provinces = [];
     }
 

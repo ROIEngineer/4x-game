@@ -1,25 +1,41 @@
 import Economy from "./src/systems/Economy.js";
 import Population from "./src/systems/Population.js";
 import Player from "./src/entities/Player.js";
+import Province from "./src/entities/Province.js";
+import ProvinceNameGenerator from "./src/utils/ProvinceNameGenerator.js";
 
-const config = {
-    gold: 100, 
-    population: 100,
-    taxRate: 0.1,
-    happiness: 0 
-}
+const nameGenerator = new ProvinceNameGenerator();
 
-// Player Setup
+// Player setup
 const players = [
-    new Player("Mongols", config),
-    new Player("Romans", config),
-    new Player("French", config),
-    new Player("Spanish", config)
+    new Player("Mongols"),
+    new Player("Romans"),
+    new Player("French"),
+    new Player("Spanish")
 ];
 
-// System instances 
+// Assign each player a starting province
+players.forEach(player => {
+    const province = new Province(player.name, nameGenerator, "plains");
+    player.addProvince(province);
+});
+
+// Player level systems
 const economy = new Economy(players);
 const population = new Population(players);
 
 // Test
-console.log(population.getAveragePopulation());
+players.forEach(player => {
+    console.log(`${player.name}'s province: ${player.provinces[0].name}`);
+    console.log(player.provinces[0].getInfo());
+});
+
+// Process a turn for all provinces
+players.forEach(player => {
+    player.provinces.forEach(province => province.processTurn());
+});
+
+console.log("\nAfter turn:");
+players.forEach(player => {
+    console.log(player.provinces[0].getInfo());
+});
