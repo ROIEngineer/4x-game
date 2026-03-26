@@ -1,70 +1,70 @@
 export default class Economy {
-    constructor(players) {
-        this.players = new Map(players.map(p => [p.name, p]));
-        this._totalGold = players.reduce((sum, p) => sum + p.gold, 0);
+    constructor(entities) {
+        this.entities = new Map(entities.map(e => [e.name, e]));
+        this._totalGold = entities.reduce((sum, e) => sum + e.gold, 0);
         this._rankingCache = null;
-        this._bankruptPlayersCache = null;
-        this._playersArrayCache = null;
+        this._bankruptEntitiesCache = null;
+        this._entitiesArrayCache = null;
     }
 
     // Private helpers
-    #getPlayer(name) {
-        return this.players.get(name) ?? null;
+    #getEntity(name) {
+        return this.entities.get(name) ?? null;
     }
 
-    #getPlayersArray() {
-        if (this._playersArrayCache) return this._playersArrayCache;
-        this._playersArrayCache = [...this.players.values()];
-        return this._playersArrayCache;
+    #getEntitiesArray() {
+        if (this._entitiesArrayCache) return this._entitiesArrayCache;
+        this._entitiesArrayCache = [...this.entities.values()];
+        return this._entitiesArrayCache;
     }
 
     #invalidateCache() {
         this._rankingCache = null;
-        this._bankruptPlayersCache = null;
-        this._playersArrayCache = null;
+        this._bankruptEntitiesCache = null;
+        this._entitiesArrayCache = null;
     }
 
     // Tax related
     getTaxRate(name) {
-        const player = this.#getPlayer(name);
-        if (!player) return { success: false, message: "Player not found." };
-        return { success: true, taxRate: player.taxRate };
+        const entity = this.#getEntity(name);
+        if (!entity) return { success: false, message: "Entity not found." };
+        return { success: true, taxRate: entity.taxRate };
     }
 
     setTaxRate(name, rate) {
-        const player = this.#getPlayer(name);
-        if (!player) return { success: false, message: "Player not found." };
+        const entity = this.#getEntity(name);
+        if (!entity) return { success: false, message: "Entity not found." };
         if (rate < 0 || rate > 1) return { success: false, message: "Rate must be between 0 and 1." };
 
-        player.taxRate = rate;
+        entity.taxRate = rate;
         return { success: true };
     }
 
     raiseTaxes(name) {
-        const player = this.#getPlayer(name);
-        if (!player) return { success: false, message: "Player not found." };
-        if (player.taxRate >= 1) return { success: false, message: "Tax rate is already at maximum." };
+        const entity = this.#getEntity(name);
+        if (!entity) return { success: false, message: "Entity not found." };
+        if (entity.taxRate >= 1) return { success: false, message: "Tax rate is already at maximum." };
 
-        player.taxRate = Math.round((player.taxRate + 0.1) * 10) / 10;
-        return { success: true, taxRate: player.taxRate };
+        entity.taxRate = Math.round((entity.taxRate + 0.1) * 10) / 10;
+        return { success: true, taxRate: entity.taxRate };
     }
 
     lowerTaxes(name) {
-        const player = this.#getPlayer(name);
-        if (!player) return { success: false, message: "Player not found." };
-        if (player.taxRate <= 0) return { success: false, message: "Tax rate is already at minimum." };
+        const entity = this.#getEntity(name);
+        if (!entity) return { success: false, message: "Entity not found." };
+        if (entity.taxRate <= 0) return { success: false, message: "Tax rate is already at minimum." };
 
-        player.taxRate = Math.round((player.taxRate - 0.1) * 10) / 10;
-        return { success: true, taxRate: player.taxRate };
+        entity.taxRate = Math.round((entity.taxRate - 0.1) * 10) / 10;
+        return { success: true, taxRate: entity.taxRate };
     }
 
-    collectTaxes() {
+    collectTaxes(terrainModifier = 1) {
         const summary = [];
-        for (const player of this.players.values()) {
-            const collected = player.population * player.taxRate;
-            player.gold += collected;
+        for (const entity of this.entities.values()) {
+            const collected = Math.floor(entity.population * entity.taxRate * terrainModifier);
+            entity.gold += collected;
             this._totalGold += collected;
-            summary.push({ name: player.name, collected, newGold: player.gold });
+            summary.push({ name: entity.name, collected, newGold: entity.gold });
         }
         this.#invalidateCache();
         return { success: true, summary };
@@ -72,40 +72,40 @@ export default class Economy {
 
     // Gold related
     transferGold(fromName, toName, goldAmount) {
-        const fromPlayer = this.#getPlayer(fromName);
-        const toPlayer = this.#getPlayer(toName);
+        const fromEntity = this.#getEntity(fromName);
+        const toEntity = this.#getEntity(toName);
 
-        if (!fromPlayer || !toPlayer) return { success: false, message: "Player not found." };
+        if (!fromEntity || !toEntity) return { success: false, message: "Entity not found." };
         if (goldAmount <= 0) return { success: false, message: "Amount must be greater than zero." };
 
-        fromPlayer.gold -= goldAmount;
-        toPlayer.gold += goldAmount;
+        fromEntity.gold -= goldAmount;
+        toEntity.gold += goldAmount;
         this.#invalidateCache();
         return { success: true };
     }
 
     deductGold(name, goldAmount) {
-        const player = this.#getPlayer(name);
-        if (!player) return { success: false, message: "Player not found." };
+        const entity = this.#getEntity(name);
+        if (!entity) return { success: false, message: "Entity not found." };
         if (goldAmount <= 0) return { success: false, message: "Amount must be greater than zero." };
 
-        player.gold -= goldAmount;
+        entity.gold -= goldAmount;
         this._totalGold -= goldAmount;
         this.#invalidateCache();
-        return { success: true, newGold: player.gold };
+        return { success: true, newGold: entity.gold };
     }
 
     isAffordable(name, cost) {
-        const player = this.#getPlayer(name);
-        if (!player) return { success: false, message: "Player not found." };
+        const entity = this.#getEntity(name);
+        if (!entity) return { success: false, message: "Entity not found." };
 
-        const newGold = player.gold - cost;
+        const newGold = entity.gold - cost;
 
         if (newGold < 0) {
             return {
                 success: true,
                 warning: true,
-                message: `${player.name} will be in debt of ${Math.abs(newGold)} gold.`
+                message: `${entity.name} will be in debt of ${Math.abs(newGold)} gold.`
             };
         }
 
@@ -115,7 +115,7 @@ export default class Economy {
     // Reporting related
     getWealthRanking() {
         if (this._rankingCache) return this._rankingCache;
-        this._rankingCache = this.#getPlayersArray().toSorted((a, b) => b.gold - a.gold);
+        this._rankingCache = this.#getEntitiesArray().toSorted((a, b) => b.gold - a.gold);
         return this._rankingCache;
     }
 
@@ -124,19 +124,19 @@ export default class Economy {
     }
 
     getAverageGold() {
-        return this._totalGold / this.players.size;
+        return this._totalGold / this.entities.size;
     }
 
     // Validation
     isBankrupt(name) {
-        const player = this.#getPlayer(name);
-        if (!player) return { success: false, message: "Player not found." };
-        return { success: true, isBankrupt: player.gold <= 0 };
+        const entity = this.#getEntity(name);
+        if (!entity) return { success: false, message: "Entity not found." };
+        return { success: true, isBankrupt: entity.gold <= 0 };
     }
 
-    getBankruptPlayers() {
-        if (this._bankruptPlayersCache) return this._bankruptPlayersCache;
-        this._bankruptPlayersCache = this.#getPlayersArray().filter(p => p.gold <= 0);
-        return this._bankruptPlayersCache;
+    getBankruptEntities() {
+        if (this._bankruptEntitiesCache) return this._bankruptEntitiesCache;
+        this._bankruptEntitiesCache = this.#getEntitiesArray().filter(e => e.gold <= 0);
+        return this._bankruptEntitiesCache;
     }
 }
