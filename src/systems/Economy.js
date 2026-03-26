@@ -67,7 +67,6 @@ export default class Economy {
 
         if (!fromPlayer || !toPlayer) return { success: false, message: "Player not found." };
         if (goldAmount <= 0) return { success: false, message: "Amount must be greater than zero." };
-        if (goldAmount > fromPlayer.gold) return { success: false, message: `${fromPlayer.name} has insufficient funds.` };
 
         fromPlayer.gold -= goldAmount;
         toPlayer.gold += goldAmount;
@@ -79,20 +78,27 @@ export default class Economy {
         const player = this.#getPlayer(name);
         if (!player) return { success: false, message: "Player not found." };
         if (goldAmount <= 0) return { success: false, message: "Amount must be greater than zero." };
-        if (goldAmount > player.gold) return { success: false, message: `${player.name} has insufficient funds.` };
 
         player.gold -= goldAmount;
         this.#invalidateCache();
-        return { success: true };
+        return { success: true, newGold: player.gold };
     }
 
     isAffordable(name, cost) {
         const player = this.#getPlayer(name);
         if (!player) return { success: false, message: "Player not found." };
 
-        return cost <= player.gold
-            ? { success: true }
-            : { success: false, message: "Insufficient funds." };
+        const newGold = player.gold - cost;
+
+        if (newGold < 0) {
+            return { 
+                success: true, 
+                warning: true, 
+                message: `${player.name} will be in debt of ${Math.abs(newGold)} gold.`
+            };
+        }
+
+        return { success: true, warning: false };
     }
 
     // Reporting related

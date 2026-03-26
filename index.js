@@ -6,7 +6,7 @@ const config = {
     gold: 100, 
     population: 100,
     taxRate: 0.1,
-    happiness: 100
+    happiness: 0 
 }
 
 // Player Setup
@@ -22,7 +22,4 @@ const economy = new Economy(players);
 const population = new Population(players);
 
 // Test
-const result = population.setHappiness("Mongols", -30);
-if (result.success) console.log(result.happiness);
-
-console.log(players[0].happiness);
+console.log(population.getAveragePopulation());
