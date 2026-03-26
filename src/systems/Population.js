@@ -37,4 +37,42 @@ export default class Population {
         player.population -= amount;
         return { success: true, newPopulation: player.population };
     }
+
+    applyPlagueEvent(name, rate) {
+        const player = this.#getPlayer(name);
+        if (!player) return { success: false, message: "Player not found." };
+        if (rate < 0 || rate > 1) return { success: false, message: "Rate must be between 0 and 1." };
+
+        const populationLost = Math.floor(player.population * rate);
+        player.population -= populationLost;
+
+        return { success: true, populationLost, newPopulation: player.population };
+    }
+
+    getHappiness(name) {
+        const player = this.#getPlayer(name);
+        if (!player) return { success: false, message: "Player not found." };
+        return { success: true, happiness: player.happiness };
+    }
+
+    setHappiness(name, value) {
+        const player = this.#getPlayer(name);
+        if (!player) return { success: false, message: "Player not found." };
+        if (value < 0 || value > 10) return { success: false, message: "Happiness must be between 0 and 10." };
+
+        player.happiness = value;
+        return { success: true, happiness: player.happiness };
+    }
+
+    applyTaxEffect(name, taxRate) {
+        const player = this.#getPlayer(name);
+        if (!player) return { success: false, message: "Player not found." };
+
+        if (taxRate >= 0.5) {
+            this.setHappiness(player, 50);
+        } else if (taxRate <= 0.4) {
+            this.setHappiness(player, 100);
+        }
+    }
 }
+
