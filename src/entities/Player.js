@@ -1,18 +1,13 @@
-export default class Player {
-    constructor(name) {
-        this.name = name;
-        this.gold = 0;
-        this.population = 0;
-        this.taxRate = 0.1;
-        this.happiness = 0;
-        this.provinces = [];
-    }
+class Player {
+  constructor(id, name, type = 'human') {
+    this.id = id;
+    this.name = name;
+    this.type = type; // 'human' or 'ai'
+    this.controlledNationIds = [];
+  }
 
-    addProvince(province) {
-        this.provinces.push(province);
-    }
-
-    removeProvince(provinceName) {
-        this.provinces = this.provinces.filter(p => p.name !== provinceName);
-    }
+  // Example: send command to a nation
+  issueCommand(nation, action, payload) {
+    nation.receiveCommand({ action, payload, playerId: this.id });
+  }
 }
