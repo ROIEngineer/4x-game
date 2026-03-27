@@ -5,7 +5,7 @@ export default class Economy {
         this._rankingCache = null;
         this._bankruptEntitiesCache = null;
         this._entitiesArrayCache = null;
-    }
+    } 
 
     // Private helpers
     #getEntity(name) {
